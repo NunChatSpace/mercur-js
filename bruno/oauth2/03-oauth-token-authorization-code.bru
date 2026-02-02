@@ -1,0 +1,42 @@
+meta {
+  name: OAuth Token (Authorization Code)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/oauth/token
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "grant_type": "authorization_code",
+    "code": "{{authCode}}",
+    "client_id": "{{clientId}}",
+    "client_secret": "{{clientSecret}}",
+    "redirect_uri": "{{redirectUri}}"
+  }
+}
+
+tests {
+  test("should return token pair", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body && res.body.access_token).to.be.a("string");
+    expect(res.body && res.body.refresh_token).to.be.a("string");
+  });
+}
+
+script:post-response {
+  if (res.body && res.body.access_token) {
+    bru.setEnvVar("accessToken", res.body.access_token);
+  }
+  if (res.body && res.body.refresh_token) {
+    bru.setEnvVar("refreshToken", res.body.refresh_token);
+  }
+}

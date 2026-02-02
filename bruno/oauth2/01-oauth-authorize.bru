@@ -1,0 +1,32 @@
+meta {
+  name: OAuth Authorize
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/oauth/authorize
+  body: none
+  auth: none
+}
+
+params:query {
+  client_id: {{clientId}}
+  redirect_uri: {{redirectUri}}
+  response_type: code
+  scope: {{scope}}
+  state: {{state}}
+}
+
+tests {
+  test("should redirect to consent", function () {
+    const redirectStatuses = [301, 302, 307, 308];
+    if (redirectStatuses.includes(res.status)) {
+      const location = (res.headers && (res.headers.location || res.headers.Location)) || "";
+      expect(location).to.be.a("string");
+      expect(location).to.include("/oauth-consent");
+    } else {
+      expect(res.status).to.equal(200);
+    }
+  });
+}

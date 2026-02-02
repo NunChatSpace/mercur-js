@@ -1,0 +1,21 @@
+meta {
+  name: Admin OAuth Clients - Delete
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{baseUrl}}/admin/oauth-clients/{{oauthClientRecordId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminToken}}
+}
+
+tests {
+  test("should delete client", function () {
+    expect([200, 204]).to.include(res.status);
+  });
+}

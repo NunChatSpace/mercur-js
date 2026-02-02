@@ -1,0 +1,35 @@
+meta {
+  name: Admin Login (Email/Password)
+  type: http
+  seq: 0
+}
+
+post {
+  url: {{baseUrl}}/auth/user/emailpass
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
+  }
+}
+
+tests {
+  test("should return admin token", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body && res.body.token).to.be.a("string");
+  });
+}
+
+script:post-response {
+  if (res.body && res.body.token) {
+    bru.setEnvVar("adminToken", res.body.token);
+  }
+}

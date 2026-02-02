@@ -22,6 +22,7 @@
     "test:unit": "TEST_TYPE=unit NODE_OPTIONS=--experimental-vm-modules jest --silent --runInBand --forceExit"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "@medusajs/admin-sdk": "2.11.3",
     "@medusajs/cli": "2.11.3",
     "@medusajs/framework": "2.11.3",
@@ -36,6 +37,7 @@
     "@mercurjs/reviews": "^1.5.1"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@medusajs/test-utils": "2.11.3",
     "@swc/core": "1.5.7",
     "@swc/jest": "^0.2.36",

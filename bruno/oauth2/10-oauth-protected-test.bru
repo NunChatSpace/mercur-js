@@ -1,0 +1,21 @@
+meta {
+  name: OAuth Protected - Test
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/oauth/protected/test
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+}
+
+tests {
+  test("should allow valid access token", function () {
+    expect(res.status).to.equal(200);
+  });
+}

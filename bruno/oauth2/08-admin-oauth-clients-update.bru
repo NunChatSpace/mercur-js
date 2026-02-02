@@ -1,0 +1,39 @@
+meta {
+  name: Admin OAuth Clients - Update
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/admin/oauth-clients/{{oauthClientRecordId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{adminToken}}
+}
+
+body:json {
+  {
+    "name": "Test App (Updated)",
+    "redirect_uris": [
+      "{{redirectUri}}"
+    ],
+    "grants": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "scopes": [
+      "{{scope}}"
+    ],
+    "is_confidential": true
+  }
+}
+
+tests {
+  test("should update client", function () {
+    expect(res.status).to.equal(200);
+  });
+}

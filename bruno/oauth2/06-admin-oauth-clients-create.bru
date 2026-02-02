@@ -1,0 +1,57 @@
+meta {
+  name: Admin OAuth Clients - Create
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/admin/oauth-clients
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{adminToken}}
+}
+
+body:json {
+  {
+    "name": "Test App",
+    "redirect_uris": [
+      "{{redirectUri}}"
+    ],
+    "grants": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "scopes": [
+      "{{scope}}"
+    ],
+    "is_confidential": true
+  }
+}
+
+tests {
+  test("should create client", function () {
+    expect([200, 201]).to.include(res.status);
+  });
+}
+
+script:post-response {
+  const body = res.body || {};
+  const client = body.oauth_client || body.client || body;
+  const clientId = client.client_id || body.client_id;
+  const clientSecret = client.client_secret || body.client_secret;
+  const recordId = client.id || body.id || body.oauth_client_id;
+
+  if (clientId) {
+    bru.setEnvVar("clientId", clientId);
+  }
+  if (clientSecret) {
+    bru.setEnvVar("clientSecret", clientSecret);
+  }
+  if (recordId) {
+    bru.setEnvVar("oauthClientRecordId", recordId);
+  }
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Admin OAuth Clients - List
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/admin/oauth-clients
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{adminToken}}
+}
+
+tests {
+  test("should list clients", function () {
+    expect(res.status).to.equal(200);
+  });
+}

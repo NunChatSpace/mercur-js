@@ -49,6 +49,10 @@ module.exports = defineConfig({
     }
   ],
   modules: [
+    // OAuth Module
+    {
+      resolve: './src/modules/oauth',
+    },
     {
       resolve: '@medusajs/medusa/payment',
       options: {
