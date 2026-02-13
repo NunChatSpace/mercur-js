@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=adapter
+      - POSTGRES_PASSWORD=adapter
+      - POSTGRES_DB=adapter
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adapter"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MQTT Broker (Message Queue)
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Adapter Service
+  adapter:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - WEBHOOK_SECRET=125f16b3fd1c386ba2f8128230149c76c23e18490e01646b24fba27358246d91
+      - BROKER_URL=mqtt://mqtt:1883
+      - BROKER_CLIENT_ID=adapter-001
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=adapter
+      - DATABASE_PASSWORD=adapter
+      - DATABASE_NAME=adapter
+      - DATABASE_SSLMODE=disable
+      - MERCURJS_URL=http://host.docker.internal:9000
+      - MERCURJS_CLIENT_ID=adapter-client
+      - MERCURJS_CLIENT_SECRET=adapter-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

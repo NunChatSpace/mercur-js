@@ -1,6 +1,6 @@
 import { MedusaService } from "@medusajs/framework/utils"
 import crypto from "crypto"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 import {
   OAuthClient,
   OAuthAuthorizationCode,
@@ -244,6 +244,9 @@ class OAuthModuleService extends MedusaService({
       token_type: "Bearer",
       expires_in: ACCESS_TOKEN_LIFETIME,
       scope: authCode.scope || undefined,
+      // Include user info so adapter knows which shop this token belongs to
+      user_id: authCode.user_id,
+      user_type: authCode.user_type,
     }
   }
 

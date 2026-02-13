@@ -103,10 +103,13 @@ export async function PUT(
     }
 
     // Update the client
-    const updatedClient = await oauthService.updateOAuthClients(
+    await oauthService.updateOAuthClients(
       { id },
       updateData
     )
+
+    // Fetch the updated client
+    const updatedClient = await oauthService.retrieveOAuthClient(id)
 
     // Remove sensitive data
     return res.json({

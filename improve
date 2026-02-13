@@ -1,0 +1,4 @@
+adapter consume message create product from OMS -> create product medusa's store
+User make order on medusa -- hook --> adapter with type (order.created) -- write to --> MQ
+adjust flow when user get store's products no need to fire api to adapter use MQ service!
+when create order, status change hook event must appear

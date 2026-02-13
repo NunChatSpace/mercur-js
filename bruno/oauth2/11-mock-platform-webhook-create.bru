@@ -1,0 +1,44 @@
+meta {
+  name: Mock Platform - Webhook Create
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/platform/{{platform}}/webhook
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{accessToken}}
+}
+
+body:json {
+  {
+    "url": "{{webhookUrl}}",
+    "event_types":["order.created"],
+    "shop_id": "{{webhookShopId}}"
+  }
+}
+
+script:post-response {
+  const body = res.body || {};
+  const webhook = body.webhook || {};
+  const webhookId = webhook.id || body.id;
+  const secret = body.secret;
+  
+  if (webhookId) {
+    bru.setEnvVar("webhookId", webhookId);
+  }
+  if (secret) {
+    bru.setEnvVar("webhookSecret", secret);
+  }
+}
+
+tests {
+  test("should create or update webhook", function () {
+    expect([200, 201]).to.include(res.status);
+  });
+}

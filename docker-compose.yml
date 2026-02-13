@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Shared database
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+  # MQTT Broker - Message Queue
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./adapter/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # MercurJS Backend
+  mercurjs:
+    build:
+      context: ./mercur/backend
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/medusa?sslmode=disable
+      - JWT_SECRET=supersecret
+      - COOKIE_SECRET=supersecret
+      - STORE_CORS=http://localhost:8000,http://localhost:7000,http://localhost:3100
+      - ADMIN_CORS=http://localhost:5173,http://localhost:9000,http://localhost:7000,http://localhost:3100
+      - AUTH_CORS=http://localhost:5173,http://localhost:9000,http://localhost:7000,http://localhost:3100
+      - VENDOR_CORS=http://localhost:7000,http://localhost:3100
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Adapter Service
+  adapter:
+    build:
+      context: ./adapter
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - WEBHOOK_SECRET=125f16b3fd1c386ba2f8128230149c76c23e18490e01646b24fba27358246d91
+      - BROKER_URL=tcp://mqtt:1883
+      - BROKER_CLIENT_ID=adapter-001
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_NAME=adapter
+      - DATABASE_SSLMODE=disable
+      - MERCURJS_URL=http://mercurjs:9000
+      - MERCURJS_CLIENT_ID=client_4b36dba8abed95391ec3433e33a975d4
+      - MERCURJS_CLIENT_SECRET=115b30a86d3754aff1bf30056b915a59ef01fc1fa28a7aa4a0a9316722bfe76b
+      - MERCURJS_REDIRECT_URI=http://localhost:3001/oauth/callback
+      - WEBUI_URL=http://localhost:3100
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+
+  # Web UI - OAuth redirect helper
+  webui:
+    image: nginx:alpine
+    ports:
+      - "3100:80"
+    volumes:
+      - ./webui:/usr/share/nginx/html:ro
+
+  # Admin Panel
+  admin-panel:
+    build:
+      context: ./mercur/admin-panel
+      dockerfile: Dockerfile
+      args:
+        - VITE_MEDUSA_BASE=/
+        - VITE_MEDUSA_BACKEND_URL=http://localhost:9000
+        - VITE_MEDUSA_STOREFRONT_URL=http://localhost:8000
+    ports:
+      - "5173:8000"
+    depends_on:
+      - mercurjs
+
+  # Vendor Panel
+  vendor-panel:
+    build:
+      context: ./mercur/vendor-panel
+      dockerfile: Dockerfile
+      args:
+        - VITE_MEDUSA_BASE=/
+        - VITE_MEDUSA_BACKEND_URL=http://localhost:9000
+        - VITE_MEDUSA_STOREFRONT_URL=http://localhost:8000
+        - VITE_PUBLISHABLE_API_KEY=pk_fcf988d4ff36ddf1076d348a647682c3b01cff5a82b7603fa19daca23f958515
+        - VITE_DISABLE_SELLERS_REGISTRATION=false
+    ports:
+      - "7000:7000"
+    depends_on:
+      - mercurjs
+
+volumes:
+  postgres_data:
+  pgadmin_data:

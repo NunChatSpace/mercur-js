@@ -53,6 +53,10 @@ module.exports = defineConfig({
     {
       resolve: './src/modules/oauth',
     },
+    // Webhook Module
+    {
+      resolve: './src/modules/webhook',
+    },
     {
       resolve: '@medusajs/medusa/payment',
       options: {

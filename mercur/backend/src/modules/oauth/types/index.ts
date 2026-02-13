@@ -88,6 +88,8 @@ export type TokenResponse = {
   token_type: "Bearer"
   expires_in: number
   scope?: string
+  user_id?: string
+  user_type?: string
 }
 
 export type ValidatedToken = {

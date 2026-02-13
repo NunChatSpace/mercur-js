@@ -560,3 +560,45 @@ export async function createConfigurationRules(container: MedusaContainer) {
     })
   }
 }
+
+export async function createWebhookSubscription(
+  container: MedusaContainer,
+  sellerId: string
+) {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
+
+  // Check if webhook already exists
+  const { data: existing } = await query.graph({
+    entity: "webhook_registration",
+    fields: ["id"],
+    filters: {
+      shop_id: sellerId,
+      platform_id: "default"
+    }
+  })
+
+  if (existing && existing.length > 0) {
+    return existing[0]
+  }
+
+  // Create webhook registration directly via database
+  // Since there's no workflow, we use raw query
+  const db = container.resolve(ContainerRegistrationKeys.PG_CONNECTION)
+  const result = await db.raw(`
+    INSERT INTO webhook_registration (id, platform_id, shop_id, url, event_types, secret, is_active, created_at, updated_at)
+    VALUES (
+      'webhook_' || substr(md5(random()::text), 0, 20),
+      'default',
+      ?,
+      'http://adapter:3001/hook',
+      '["order.placed", "order.created", "order.updated"]',
+      '125f16b3fd1c386ba2f8128230149c76c23e18490e01646b24fba27358246d91',
+      true,
+      NOW(),
+      NOW()
+    )
+    RETURNING *
+  `, [sellerId])
+
+  return result.rows?.[0]
+}

@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seller POC</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .header {
+      background: white;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 1.25rem; color: #333; }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-left: 0.5rem;
+    }
+    .badge-platform { background: #e7f3ff; color: #004085; }
+    .badge-mqtt { background: #fff3cd; color: #856404; }
+    .badge-mqtt.connected { background: #d4edda; color: #155724; }
+    .back-link { color: #007bff; text-decoration: none; margin-right: 1rem; }
+
+    /* Two Panel Layout */
+    .panels {
+      display: flex;
+      height: calc(100vh - 60px);
+    }
+    .panel {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    .panel-left { border-right: 1px solid #ddd; }
+    .panel-header {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #007bff;
+    }
+
+    /* Products */
+    .product-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .product-item {
+      background: white;
+      padding: 0.75rem;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .product-thumb {
+      width: 50px;
+      height: 50px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: #999;
+      overflow: hidden;
+    }
+    .product-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .product-details { flex: 1; }
+    .product-title { font-weight: 500; font-size: 0.9rem; }
+    .product-meta { font-size: 0.75rem; color: #666; }
+    .product-status {
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+    }
+    .status-published { background: #d4edda; color: #155724; }
+    .status-draft { background: #fff3cd; color: #856404; }
+
+    /* Webhooks */
+    .webhook-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .webhook-item {
+      background: white;
+      padding: 0.75rem;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      border-left: 3px solid #007bff;
+    }
+    .webhook-item.order { border-left-color: #28a745; }
+    .webhook-item.order { padding: 0.5rem; font-size: 0.8rem; }
+    .webhook-item.order .webhook-data { font-size: 0.7rem; padding: 0.35rem; }
+    .webhook-item.error { border-left-color: #dc3545; }
+    .webhook-event { font-weight: 500; font-size: 0.85rem; }
+    .webhook-time { font-size: 0.7rem; color: #999; }
+    .webhook-data {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: #f8f9fa;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Create Product Form */
+    .create-form {
+      display: none;
+      background: white;
+      padding: 1rem;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      margin-bottom: 1rem;
+    }
+    .create-form.open { display: block; }
+    .create-form h3 { font-size: 0.9rem; margin-bottom: 0.75rem; }
+    .form-group { margin-bottom: 0.5rem; }
+    .form-group label { display: block; font-size: 0.75rem; color: #555; margin-bottom: 0.2rem; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.4rem 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      font-size: 0.85rem;
+    }
+    .form-row { display: flex; gap: 0.5rem; }
+    .form-row .form-group { flex: 1; }
+    .form-actions { margin-top: 0.75rem; display: flex; gap: 0.5rem; }
+
+    .loading { text-align: center; padding: 2rem; color: #666; }
+    .empty { text-align: center; padding: 2rem; color: #999; }
+    .error-msg { background: #f8d7da; color: #721c24; padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; }
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <a href="/" class="back-link">&larr; Back</a>
+      <span id="shopInfo">Shop: -</span>
+      <span class="badge badge-mqtt" id="mqttStatus">MQTT: ...</span>
+    </div>
+  </div>
+
+  <div class="panels">
+    <!-- Left Panel: API Responses -->
+    <div class="panel panel-left">
+      <div class="panel-header">
+        API Responses <span style="font-weight:normal;font-size:0.75rem;color:#666;">(responses/#)</span>
+        <div style="float:right;">
+          <button class="btn btn-sm" style="background:#28a745;color:white;" onclick="toggleCreateForm()">Create Product</button>
+          <button class="btn btn-sm btn-primary" onclick="requestProducts()">Get Products</button>
+          <button class="btn btn-sm" style="background:#6c757d;color:white;margin-left:0.25rem;" onclick="clearResponses()">Clear</button>
+        </div>
+      </div>
+
+      <!-- Create Product Form -->
+      <div id="createForm" class="create-form">
+        <h3>Create Product (via MQTT)</h3>
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="productTitle" placeholder="e.g. My New Product">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Price (cents)</label>
+            <input type="number" id="productPrice" value="2500" placeholder="2500">
+          </div>
+          <div class="form-group">
+            <label>Currency</label>
+            <select id="productCurrency">
+              <option value="usd">USD</option>
+              <option value="eur">EUR</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="productStatus">
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-sm" style="background:#28a745;color:white;" onclick="createProduct()">Publish to MQTT</button>
+          <button class="btn btn-sm" style="background:#6c757d;color:white;" onclick="toggleCreateForm()">Cancel</button>
+        </div>
+      </div>
+
+      <div id="responseEmpty" class="empty">No API responses yet. Click "Get Products" to fetch data.</div>
+      <div id="responseList" class="webhook-list"></div>
+    </div>
+
+    <!-- Right Panel: Webhook Events -->
+    <div class="panel">
+      <div class="panel-header">
+        Webhook Events <span style="font-weight:normal;font-size:0.75rem;color:#666;">(orders/#)</span>
+        <div style="float:right;">
+          <button class="btn btn-sm" style="background:#dc3545;color:white;" onclick="toggleOrderForm()">Place Order</button>
+          <button class="btn btn-sm btn-primary" style="margin-left:0.25rem;" onclick="toggleOrderStatusForm()">Vendor Status</button>
+          <button class="btn btn-sm" style="background:#6c757d;color:white;margin-left:0.25rem;" onclick="clearEvents()">Clear</button>
+        </div>
+      </div>
+      <!-- Place Order Form -->
+      <div id="orderForm" class="create-form">
+        <h3>Place Order (via Store API)</h3>
+        <div class="form-group">
+          <label>Variant ID (from seller's products)</label>
+          <input type="text" id="orderVariantId" placeholder="variant_01...">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="orderEmail" value="test@example.com">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>First Name</label>
+            <input type="text" id="orderFirstName" value="Test">
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input type="text" id="orderLastName" value="User">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Address</label>
+            <input type="text" id="orderAddress" value="123 Test St">
+          </div>
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" id="orderCity" value="Berlin">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Country</label>
+            <input type="text" id="orderCountry" value="de" maxlength="2">
+          </div>
+          <div class="form-group">
+            <label>Postal Code</label>
+            <input type="text" id="orderPostal" value="10115">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-sm" style="background:#dc3545;color:white;" id="placeOrderBtn" onclick="placeOrder()">Place Order</button>
+          <button class="btn btn-sm" style="background:#6c757d;color:white;" onclick="toggleOrderForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Vendor Status Form -->
+      <div id="orderStatusForm" class="create-form">
+        <h3>Vendor Order Status</h3>
+        <div class="form-group">
+          <label>Bearer Token</label>
+          <input type="text" id="vendorBearerToken" placeholder="Paste token or use login below">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Login Email</label>
+            <input type="email" id="vendorLoginEmail" placeholder="seller@example.com">
+          </div>
+          <div class="form-group">
+            <label>Login Password</label>
+            <input type="password" id="vendorLoginPassword" placeholder="password">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-sm btn-primary" id="vendorLoginBtn" onclick="vendorLogin()">Login</button>
+          <button class="btn btn-sm" style="background:#6c757d;color:white;" onclick="clearVendorToken()">Clear Token</button>
+        </div>
+        <div class="form-group" style="margin-top:0.75rem;">
+          <label>Order ID</label>
+          <input type="text" id="vendorOrderId" placeholder="order_01...">
+        </div>
+        <div class="form-group">
+          <label>Order Status</label>
+          <input type="text" id="vendorOrderStatus" placeholder="-" readonly>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-sm btn-primary" id="vendorLoadOrderBtn" onclick="vendorLoadOrder()">Load Order</button>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Location ID (for fulfill)</label>
+            <input type="text" id="vendorLocationId" placeholder="sloc_01...">
+          </div>
+          <div class="form-group">
+            <label>Line Item ID</label>
+            <input type="text" id="vendorLineItemId" placeholder="ordli_01...">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantity</label>
+            <input type="number" id="vendorLineItemQty" value="1" min="1">
+          </div>
+          <div class="form-group">
+            <label>Fulfillment ID (for ship/deliver)</label>
+            <input type="text" id="vendorFulfillmentId" placeholder="ful_01...">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-sm btn-primary" id="vendorFulfillBtn" onclick="vendorFulfill()">Fulfill</button>
+          <button class="btn btn-sm btn-primary" id="vendorShipBtn" onclick="vendorShip()">Ship</button>
+          <button class="btn btn-sm btn-primary" id="vendorDeliverBtn" onclick="vendorDeliver()">Deliver</button>
+          <button class="btn btn-sm" style="background:#6c757d;color:white;" onclick="toggleOrderStatusForm()">Close</button>
+        </div>
+      </div>
+
+      <div id="webhookEmpty" class="empty">Listening for order events... Place an order to see webhook events here.</div>
+      <div id="webhookList" class="webhook-list"></div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const shopId = params.get('shop_id');
+    const adapterUrl = localStorage.getItem('adapterUrl') || 'http://localhost:3001';
+    const mqttUrl = 'ws://localhost:9001';
+    const mercurjsUrl = localStorage.getItem('mercurjsUrl') || 'http://localhost:9000';
+    const publishableKey = 'pk_fcf988d4ff36ddf1076d348a647682c3b01cff5a82b7603fa19daca23f958515';
+    let regionId = 'reg_01KGYWPMHXGE9YQ0V2W7CD2ZCG';
+    let regionCurrency = null;
+    const shippingOptionId = 'so_01KGYWPMY081TDPZRVJ09PHKMT';
+
+    let mqttClient = null;
+
+    const existingVendorToken = localStorage.getItem('vendorAuthToken');
+    if (existingVendorToken) {
+      const tokenInput = document.getElementById('vendorBearerToken');
+      if (tokenInput) tokenInput.value = existingVendorToken;
+    }
+
+    // Update header
+    document.getElementById('shopInfo').textContent = `Shop: ${shopId || '-'}`;
+
+    if (!shopId) {
+      document.getElementById('responseEmpty').textContent = 'Missing shop_id parameter';
+    } else {
+      connectMQTT();
+    }
+
+    function connectMQTT() {
+      const clientId = 'webui-' + Math.random().toString(16).substr(2, 8);
+
+      mqttClient = mqtt.connect(mqttUrl, {
+        clientId: clientId,
+        clean: true,
+        reconnectPeriod: 1000,
+      });
+
+      mqttClient.on('connect', () => {
+        console.log('[mqtt] Connected');
+        document.getElementById('mqttStatus').textContent = 'MQTT: Connected';
+        document.getElementById('mqttStatus').classList.add('connected');
+
+        // Subscribe to API responses for this shop
+        const responseTopic = `responses/${shopId}/#`;
+        mqttClient.subscribe(responseTopic, (err) => {
+          if (!err) console.log('[mqtt] Subscribed to responses:', responseTopic);
+        });
+
+        // Subscribe to all responses (for debug)
+        mqttClient.subscribe('responses/#', (err) => {
+          if (!err) console.log('[mqtt] Subscribed to all responses');
+        });
+
+        // Subscribe to webhook events (orders)
+        const webhookTopic = `orders/${shopId}/#`;
+        mqttClient.subscribe(webhookTopic, (err) => {
+          if (!err) console.log('[mqtt] Subscribed to webhooks:', webhookTopic);
+        });
+
+        // Subscribe to all orders (for debug)
+        mqttClient.subscribe('orders/#', (err) => {
+          if (!err) console.log('[mqtt] Subscribed to all orders');
+        });
+      });
+
+      mqttClient.on('message', (topic, message) => {
+        console.log('[mqtt] Received:', topic);
+        try {
+          const data = JSON.parse(message.toString());
+
+          // Check if this is a webhook event (orders/...)
+          if (topic.startsWith('orders/')) {
+            addWebhookEvent(topic, data);
+            return;
+          }
+
+          // Check if this is an API response (responses/{request_id})
+          if (topic.startsWith('responses/')) {
+            addApiResponse(topic, data);
+            // Unsubscribe from this specific response topic (cleanup)
+            mqttClient.unsubscribe(topic);
+            console.log('[mqtt] Unsubscribed from:', topic);
+            return;
+          }
+        } catch (e) {
+          console.error('[mqtt] Parse error:', e);
+        }
+      });
+
+      mqttClient.on('error', (err) => {
+        console.error('[mqtt] Error:', err);
+        document.getElementById('mqttStatus').textContent = 'MQTT: Error';
+      });
+
+      mqttClient.on('close', () => {
+        document.getElementById('mqttStatus').textContent = 'MQTT: Disconnected';
+        document.getElementById('mqttStatus').classList.remove('connected');
+      });
+    }
+
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    function requestProducts() {
+      if (!mqttClient || !mqttClient.connected) {
+        addApiResponse('request/error', { error: 'MQTT not connected' });
+        return;
+      }
+
+      const requestId = generateUUID();
+      const requestTopic = 'requests/api_request';
+      const responseTopic = `responses/${requestId}`;
+
+      // Build the request message
+      const message = {
+        request_id: requestId,
+        api_key: 'test-key-789',
+        shop_id: shopId,
+        action: 'api_request',
+        params: {
+          path: `/sellers/${shopId}/products`,
+          method: 'GET',
+          entity_type: 'product',
+          entity_key: 'products'
+        }
+      };
+
+      // Subscribe to this specific response topic
+      mqttClient.subscribe(responseTopic, (err) => {
+        if (err) {
+          console.error('[mqtt] Subscribe error:', err);
+          addApiResponse('request/error', { error: 'Failed to subscribe to response topic' });
+          return;
+        }
+
+        console.log('[mqtt] Subscribed to:', responseTopic);
+
+        // Publish request to MQTT
+        mqttClient.publish(requestTopic, JSON.stringify(message));
+        console.log('[mqtt] Published request to:', requestTopic);
+
+        // Add a "request sent" message to the left panel
+        addApiResponse(`request → ${requestTopic}`, {
+          type: 'request_sent',
+          request_id: requestId,
+          response_topic: responseTopic,
+          message: message
+        });
+
+        // Set timeout to unsubscribe if no response
+        setTimeout(() => {
+          mqttClient.unsubscribe(responseTopic);
+          console.log('[mqtt] Timeout - unsubscribed from:', responseTopic);
+        }, 30000);
+      });
+    }
+
+    function toggleCreateForm() {
+      document.getElementById('createForm').classList.toggle('open');
+    }
+
+    function createProduct() {
+      if (!mqttClient || !mqttClient.connected) {
+        addApiResponse('request/error', { error: 'MQTT not connected' });
+        return;
+      }
+
+      const title = document.getElementById('productTitle').value.trim();
+      if (!title) {
+        addApiResponse('request/error', { error: 'Product title is required' });
+        return;
+      }
+
+      const price = parseInt(document.getElementById('productPrice').value) || 0;
+      const selectedCurrency = document.getElementById('productCurrency').value;
+      const currency = regionCurrency || selectedCurrency;
+      if (regionCurrency && selectedCurrency !== regionCurrency) {
+        addApiResponse('request/error', {
+          error: `Currency must match region (${regionCurrency}). Please update the product currency.`,
+        });
+        return;
+      }
+      const status = document.getElementById('productStatus').value;
+
+      const requestId = generateUUID();
+      const requestTopic = 'requests/create_product';
+      const responseTopic = `responses/${requestId}`;
+
+      const message = {
+        request_id: requestId,
+        api_key: 'test-key-789',
+        shop_id: shopId,
+        action: 'create_product',
+        params: {
+          product: {
+            title: title,
+            status: status,
+            options: [
+              { title: 'Default', values: ['Default'] }
+            ],
+            variants: [
+              {
+                title: 'Default Variant',
+                options: { 'Default': 'Default' },
+                prices: [
+                  { amount: price, currency_code: currency }
+                ]
+              }
+            ]
+          }
+        }
+      };
+
+      mqttClient.subscribe(responseTopic, (err) => {
+        if (err) {
+          addApiResponse('request/error', { error: 'Failed to subscribe to response topic' });
+          return;
+        }
+
+        mqttClient.publish(requestTopic, JSON.stringify(message));
+        console.log('[mqtt] Published create_product to:', requestTopic);
+
+        addApiResponse(`request → ${requestTopic}`, {
+          type: 'request_sent',
+          request_id: requestId,
+          response_topic: responseTopic,
+          message: message
+        });
+
+        setTimeout(() => {
+          mqttClient.unsubscribe(responseTopic);
+        }, 30000);
+      });
+
+      // Reset form
+      document.getElementById('productTitle').value = '';
+      toggleCreateForm();
+    }
+
+    function toggleOrderForm() {
+      document.getElementById('orderForm').classList.toggle('open');
+    }
+
+    function toggleOrderStatusForm() {
+      document.getElementById('orderStatusForm').classList.toggle('open');
+    }
+
+    async function storeApiFetch(path, options = {}) {
+      const res = await fetch(mercurjsUrl + path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-publishable-api-key': publishableKey,
+          ...(options.headers || {}),
+        },
+      });
+      if (!res.ok) {
+        const rawText = await res.text();
+        let errJson = null;
+        try {
+          errJson = rawText ? JSON.parse(rawText) : null;
+        } catch (e) {
+          errJson = null;
+        }
+        const message =
+          (errJson && (errJson.message || errJson.error)) ||
+          res.statusText ||
+          `HTTP ${res.status}`;
+        const error = new Error(message);
+        error.status = res.status;
+        error.body = errJson || rawText;
+        error.url = res.url;
+        throw error;
+      }
+      return res.json();
+    }
+
+    function getVendorToken() {
+      const input = document.getElementById('vendorBearerToken');
+      const inputToken = input ? input.value.trim() : '';
+      const storedToken = localStorage.getItem('vendorAuthToken') || '';
+      const token = inputToken || storedToken;
+      if (token && input && input.value.trim() !== token) {
+        input.value = token;
+      }
+      if (token && storedToken !== token) {
+        localStorage.setItem('vendorAuthToken', token);
+      }
+      return token;
+    }
+
+    async function vendorApiFetch(path, options = {}) {
+      const token = getVendorToken();
+      const res = await fetch(mercurjsUrl + path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-publishable-api-key': publishableKey,
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+          ...(options.headers || {}),
+        },
+      });
+      if (!res.ok) {
+        const rawText = await res.text();
+        let errJson = null;
+        try {
+          errJson = rawText ? JSON.parse(rawText) : null;
+        } catch (e) {
+          errJson = null;
+        }
+        const message =
+          (errJson && (errJson.message || errJson.error)) ||
+          res.statusText ||
+          `HTTP ${res.status}`;
+        const error = new Error(message);
+        error.status = res.status;
+        error.body = errJson || rawText;
+        error.url = res.url;
+        throw error;
+      }
+      return res.json();
+    }
+
+    async function initRegionDefaults() {
+      try {
+        const data = await storeApiFetch('/store/regions');
+        const regions = data?.regions || [];
+        const region =
+          regions.find((r) => r.id === regionId) ||
+          regions[0];
+        if (!region) return;
+
+        regionId = region.id;
+        regionCurrency = region.currency_code;
+
+        const currencySelect = document.getElementById('productCurrency');
+        if (currencySelect) {
+          const option = currencySelect.querySelector(`option[value="${region.currency_code}"]`);
+          if (option) {
+            currencySelect.value = region.currency_code;
+          }
+        }
+      } catch (err) {
+        console.warn('[store] Failed to load regions:', err);
+      }
+    }
+
+    async function placeOrder() {
+      const variantId = document.getElementById('orderVariantId').value.trim();
+      if (!variantId) {
+        addApiResponse('local/order/error', { error: 'Variant ID is required. Use "Get Products" to find one.' });
+        return;
+      }
+
+      const btn = document.getElementById('placeOrderBtn');
+      btn.disabled = true;
+      btn.textContent = 'Placing...';
+
+      try {
+        // Step 1: Create cart
+        addApiResponse('local/order/progress', { step: '1/6', message: 'Creating cart...' });
+        const { cart } = await storeApiFetch('/store/carts', {
+          method: 'POST',
+          body: JSON.stringify({ region_id: regionId }),
+        });
+
+        // Step 2: Add line item
+        addApiResponse('local/order/progress', { step: '2/6', message: 'Adding item...' });
+        await storeApiFetch(`/store/carts/${cart.id}/line-items`, {
+          method: 'POST',
+          body: JSON.stringify({ variant_id: variantId, quantity: 1 }),
+        });
+
+        // Step 3: Set address & email
+        addApiResponse('local/order/progress', { step: '3/6', message: 'Setting address...' });
+        const address = {
+          first_name: document.getElementById('orderFirstName').value,
+          last_name: document.getElementById('orderLastName').value,
+          address_1: document.getElementById('orderAddress').value,
+          city: document.getElementById('orderCity').value,
+          country_code: document.getElementById('orderCountry').value,
+          postal_code: document.getElementById('orderPostal').value,
+        };
+        await storeApiFetch(`/store/carts/${cart.id}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            email: document.getElementById('orderEmail').value,
+            shipping_address: address,
+            billing_address: address,
+          }),
+        });
+
+        // Step 4: Add shipping method
+        addApiResponse('local/order/progress', { step: '4/6', message: 'Adding shipping...' });
+        await storeApiFetch(`/store/carts/${cart.id}/shipping-methods`, {
+          method: 'POST',
+          body: JSON.stringify({ option_id: shippingOptionId }),
+        });
+
+        // Step 5: Create payment collection + session
+        addApiResponse('local/order/progress', { step: '5/6', message: 'Initializing payment...' });
+        const { payment_collection } = await storeApiFetch('/store/payment-collections', {
+          method: 'POST',
+          body: JSON.stringify({ cart_id: cart.id }),
+        });
+        await storeApiFetch(`/store/payment-collections/${payment_collection.id}/payment-sessions`, {
+          method: 'POST',
+          body: JSON.stringify({ provider_id: 'pp_system_default' }),
+        });
+
+        // Step 6: Complete cart -> creates order
+        addApiResponse('local/order/progress', { step: '6/6', message: 'Completing order...' });
+        const result = await storeApiFetch(`/store/carts/${cart.id}/complete`, {
+          method: 'POST',
+        });
+
+        const orderId = result.order_set?.orders?.[0]?.id || result.order?.id || 'unknown';
+        addApiResponse('local/order/placed', {
+          status: 'success',
+          order_id: orderId,
+          cart_id: cart.id,
+          message: 'Order placed! Webhook events should appear shortly...',
+        });
+
+        toggleOrderForm();
+      } catch (err) {
+        addApiResponse('local/order/error', {
+          error: err.message,
+          status: err.status,
+          url: err.url,
+          body: err.body,
+        });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Place Order';
+      }
+    }
+
+    function setVendorToken(token) {
+      if (!token) return;
+      localStorage.setItem('vendorAuthToken', token);
+      document.getElementById('vendorBearerToken').value = token;
+      addApiResponse('local/order/status', { message: 'Vendor token saved.' });
+    }
+
+    function clearVendorToken() {
+      localStorage.removeItem('vendorAuthToken');
+      document.getElementById('vendorBearerToken').value = '';
+      addApiResponse('local/order/status', { message: 'Vendor token cleared.' });
+    }
+
+    async function vendorLogin() {
+      const email = document.getElementById('vendorLoginEmail').value.trim();
+      const password = document.getElementById('vendorLoginPassword').value;
+      if (!email || !password) {
+        addApiResponse('local/order/error', { error: 'Email and password are required.' });
+        return;
+      }
+
+      const btn = document.getElementById('vendorLoginBtn');
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+
+      try {
+        const endpoints = [
+          '/auth/seller/emailpass',
+          '/auth/seller/emailpass/login',
+        ];
+        let token = null;
+        let lastError = null;
+
+        for (const path of endpoints) {
+          try {
+            const res = await storeApiFetch(path, {
+              method: 'POST',
+              body: JSON.stringify({ email, password }),
+            });
+            token =
+              res?.token ||
+              res?.access_token ||
+              res?.auth_token ||
+              (typeof res === 'string' ? res : null);
+            if (token) break;
+          } catch (err) {
+            lastError = err;
+          }
+        }
+
+        if (!token) {
+          throw lastError || new Error('Login failed');
+        }
+
+        setVendorToken(token);
+      } catch (err) {
+        addApiResponse('local/order/error', {
+          error: err.message,
+          status: err.status,
+          url: err.url,
+          body: err.body,
+        });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Login';
+      }
+    }
+
+    function getVendorActionInput() {
+      const orderId = document.getElementById('vendorOrderId').value.trim();
+      const locationId = document.getElementById('vendorLocationId').value.trim();
+      const lineItemId = document.getElementById('vendorLineItemId').value.trim();
+      const qty = parseInt(document.getElementById('vendorLineItemQty').value, 10) || 1;
+      const fulfillmentId = document.getElementById('vendorFulfillmentId').value.trim();
+      return { orderId, locationId, lineItemId, qty, fulfillmentId };
+    }
+
+    async function vendorLoadOrder() {
+      const orderId = document.getElementById('vendorOrderId').value.trim();
+      if (!orderId) {
+        addApiResponse('local/order/error', { error: 'Order ID is required.' });
+        return;
+      }
+
+      const btn = document.getElementById('vendorLoadOrderBtn');
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+
+      try {
+        const order = await vendorApiFetch(`/vendor/orders/${orderId}`);
+        const items = order?.order?.items || order?.items || [];
+        const fulfillments = order?.order?.fulfillments || order?.fulfillments || [];
+
+        if (items.length > 0) {
+          document.getElementById('vendorLineItemId').value = items[0].id || '';
+          if (items[0].quantity) {
+            document.getElementById('vendorLineItemQty').value = items[0].quantity;
+          }
+        }
+
+        if (fulfillments.length > 0) {
+          document.getElementById('vendorFulfillmentId').value = fulfillments[0].id || '';
+          if (!document.getElementById('vendorLocationId').value && fulfillments[0].location_id) {
+            document.getElementById('vendorLocationId').value = fulfillments[0].location_id;
+          }
+        }
+
+        const baseStatus = (order?.order?.status || order?.status || 'unknown').toUpperCase();
+        let flowStatus = [];
+        if (fulfillments.length > 0) {
+          const f = fulfillments[0];
+          if (f.packed_at) flowStatus.push('FULFILLED');
+          if (f.shipped_at) flowStatus.push('SHIPPED');
+          if (f.delivered_at) flowStatus.push('DELIVERED');
+        }
+        const statusText = flowStatus.length
+          ? `${baseStatus} | ${flowStatus.join(' > ')}`
+          : baseStatus;
+        document.getElementById('vendorOrderStatus').value = statusText;
+
+        if (!document.getElementById('vendorLocationId').value) {
+          try {
+            const locationsRes = await vendorApiFetch('/vendor/stock-locations');
+            const locations = locationsRes?.stock_locations || locationsRes?.locations || [];
+            if (locations.length > 0) {
+              document.getElementById('vendorLocationId').value = locations[0].id || '';
+            }
+          } catch (e) {
+            // ignore if vendor locations not available
+          }
+        }
+
+        addApiResponse('local/order/status', { action: 'load_order', message: 'Order loaded' });
+      } catch (err) {
+        addApiResponse('local/order/error', {
+          error: err.message,
+          status: err.status,
+          url: err.url,
+          body: err.body,
+        });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Load Order';
+      }
+    }
+
+    async function vendorFulfill() {
+      const { orderId, locationId, lineItemId, qty } = getVendorActionInput();
+      if (!orderId || !locationId || !lineItemId) {
+        addApiResponse('local/order/error', { error: 'Order ID, Location ID, and Line Item ID are required.' });
+        return;
+      }
+      const btn = document.getElementById('vendorFulfillBtn');
+      btn.disabled = true;
+      btn.textContent = 'Fulfilling...';
+      try {
+        const result = await vendorApiFetch(`/vendor/orders/${orderId}/fulfillments`, {
+          method: 'POST',
+          body: JSON.stringify({
+            location_id: locationId,
+            requires_shipping: true,
+            items: [{ id: lineItemId, quantity: qty }],
+          }),
+        });
+        let fulfillmentId = result?.fulfillment?.id || result?.fulfillment_id;
+        if (!fulfillmentId && result?.order?.fulfillments?.length) {
+          fulfillmentId = result.order.fulfillments[0].id;
+        }
+        if (!fulfillmentId) {
+          try {
+            const refreshed = await vendorApiFetch(`/vendor/orders/${orderId}`);
+            const fulfillments = refreshed?.order?.fulfillments || refreshed?.fulfillments || [];
+            if (fulfillments.length > 0) fulfillmentId = fulfillments[0].id;
+          } catch (e) {
+            // ignore
+          }
+        }
+        if (fulfillmentId) {
+          document.getElementById('vendorFulfillmentId').value = fulfillmentId;
+        }
+        addApiResponse('local/order/status', { action: 'fulfill', message: 'Fulfillment created' });
+      } catch (err) {
+        addApiResponse('local/order/error', {
+          error: err.message,
+          status: err.status,
+          url: err.url,
+          body: err.body,
+        });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Fulfill';
+      }
+    }
+
+    async function vendorShip() {
+      const { orderId, lineItemId, qty, fulfillmentId } = getVendorActionInput();
+      if (!orderId || !fulfillmentId || !lineItemId) {
+        addApiResponse('local/order/error', { error: 'Order ID, Fulfillment ID, and Line Item ID are required.' });
+        return;
+      }
+      const btn = document.getElementById('vendorShipBtn');
+      btn.disabled = true;
+      btn.textContent = 'Shipping...';
+      try {
+        const result = await vendorApiFetch(`/vendor/orders/${orderId}/fulfillments/${fulfillmentId}/shipments`, {
+          method: 'POST',
+          body: JSON.stringify({
+            items: [{ id: lineItemId, quantity: qty }],
+            labels: [],
+          }),
+        });
+        addApiResponse('local/order/status', { action: 'ship', message: 'Shipment created' });
+      } catch (err) {
+        addApiResponse('local/order/error', {
+          error: err.message,
+          status: err.status,
+          url: err.url,
+          body: err.body,
+        });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ship';
+      }
+    }
+
+    async function vendorDeliver() {
+      const { orderId, fulfillmentId } = getVendorActionInput();
+      if (!orderId || !fulfillmentId) {
+        addApiResponse('local/order/error', { error: 'Order ID and Fulfillment ID are required.' });
+        return;
+      }
+      const btn = document.getElementById('vendorDeliverBtn');
+      btn.disabled = true;
+      btn.textContent = 'Delivering...';
+      try {
+        const result = await vendorApiFetch(`/vendor/orders/${orderId}/fulfillments/${fulfillmentId}/mark-as-delivered`, {
+          method: 'POST',
+        });
+        addApiResponse('local/order/status', { action: 'deliver', message: 'Marked as delivered' });
+      } catch (err) {
+        addApiResponse('local/order/error', {
+          error: err.message,
+          status: err.status,
+          url: err.url,
+          body: err.body,
+        });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Deliver';
+      }
+    }
+
+    initRegionDefaults();
+
+    function addApiResponse(topic, data) {
+      const listEl = document.getElementById('responseList');
+      const emptyEl = document.getElementById('responseEmpty');
+
+      emptyEl.style.display = 'none';
+
+      const item = document.createElement('div');
+      const isError = data.success === false || data.error;
+      const isRequest = data.type === 'request_sent';
+
+      item.className = `webhook-item ${isError ? 'error' : ''} ${isRequest ? '' : 'order'}`;
+      item.innerHTML = `
+        <div class="webhook-event">${isRequest ? 'Request Sent' : (data.success ? 'Response OK' : 'Response Error')}</div>
+        <div class="webhook-time">${new Date().toLocaleTimeString()} - ${topic}</div>
+        <div class="webhook-data">${JSON.stringify(data, null, 2)}</div>
+      `;
+
+      listEl.insertBefore(item, listEl.firstChild);
+
+      while (listEl.children.length > 50) {
+        listEl.removeChild(listEl.lastChild);
+      }
+    }
+
+    function clearResponses() {
+      document.getElementById('responseList').innerHTML = '';
+      document.getElementById('responseEmpty').style.display = 'block';
+    }
+
+    function addWebhookEvent(topic, data) {
+      const listEl = document.getElementById('webhookList');
+      const emptyEl = document.getElementById('webhookEmpty');
+
+      emptyEl.style.display = 'none';
+
+      const item = document.createElement('div');
+      const eventType = data.event_type || topic.split('/').pop();
+      const isOrder = eventType.includes('order');
+      const payload = data.data || data;
+
+      item.className = `webhook-item ${isOrder ? 'order' : ''}`;
+
+      if (isOrder) {
+        const orderId = payload.order_id || payload.id || '-';
+        const status = payload.status || '-';
+        const fulfillment = (payload.fulfillments && payload.fulfillments[0]) || null;
+        const flow = [];
+        if (fulfillment?.packed_at) flow.push('FULFILLED');
+        if (fulfillment?.shipped_at) flow.push('SHIPPED');
+        if (fulfillment?.delivered_at) flow.push('DELIVERED');
+        const flowText = flow.length ? ` | ${flow.join(' > ')}` : '';
+
+        item.innerHTML = `
+          <div class="webhook-event">${eventType}</div>
+          <div class="webhook-time">${new Date().toLocaleTimeString()} - ${topic}</div>
+          <div class="webhook-data">order_id: ${orderId} | status: ${status}${flowText}</div>
+        `;
+      } else {
+        item.innerHTML = `
+          <div class="webhook-event">${eventType}</div>
+          <div class="webhook-time">${new Date().toLocaleTimeString()} - ${topic}</div>
+          <div class="webhook-data">${JSON.stringify(payload, null, 2)}</div>
+        `;
+      }
+
+      // Add to top
+      listEl.insertBefore(item, listEl.firstChild);
+
+      // Keep max 50 events
+      while (listEl.children.length > 50) {
+        listEl.removeChild(listEl.lastChild);
+      }
+    }
+
+    function clearEvents() {
+      document.getElementById('webhookList').innerHTML = '';
+      document.getElementById('webhookEmpty').style.display = 'block';
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (mqttClient) mqttClient.end();
+    });
+  </script>
+</body>
+</html>

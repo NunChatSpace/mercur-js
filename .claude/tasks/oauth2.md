@@ -452,14 +452,16 @@ OAUTH_AUTHORIZATION_CODE_LIFETIME=600   # 10 minutes (seconds)
 ```bash
 # 1. Create OAuth client (as admin)
 curl -X POST http://localhost:9000/admin/oauth-clients \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3Rvcl9pZCI6InVzZXJfMDFLR0QwNFZaUFlNUlY4TTgxRFBSWlA1VksiLCJhY3Rvcl90eXBlIjoidXNlciIsImF1dGhfaWRlbnRpdHlfaWQiOiJhdXRoaWRfMDFLR0QwNFcyOUdUMERDV1FUR0FFU0c5QlMiLCJhcHBfbWV0YWRhdGEiOnsidXNlcl9pZCI6InVzZXJfMDFLR0QwNFZaUFlNUlY4TTgxRFBSWlA1VksifSwidXNlcl9tZXRhZGF0YSI6e30sImlhdCI6MTc3MDA1NzQzOSwiZXhwIjoxNzcwMTQzODM5fQ.jCXN6h_bn40zuHGOtCsCGdKyELi8o05Oo-Qwx1ltIwg" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3Rvcl9pZCI6InVzZXJfMDFLR0QwNFZaUFlNUlY4TTgxRFBSWlA1VksiLCJhY3Rvcl90eXBlIjoidXNlciIsImF1dGhfaWRlbnRpdHlfaWQiOiJhdXRoaWRfMDFLR0QwNFcyOUdUMERDV1FUR0FFU0c5QlMiLCJhcHBfbWV0YWRhdGEiOnsidXNlcl9pZCI6InVzZXJfMDFLR0QwNFZaUFlNUlY4TTgxRFBSWlA1VksifSwidXNlcl9tZXRhZGF0YSI6e30sImlhdCI6MTc3MDE4MzY1OSwiZXhwIjoxNzcwMjcwMDU5fQ.ZwWu8A04QeP0OIlY9rkwrAT0bhrAaOM0ocy6gjkHF0Q" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Test App","redirect_uris":["http://localhost:3000/callback"]}'
+  -d '{"name":"OMS","redirect_uris":["http://localhost:3000/callback"]}'
+
+# "Test App 2" id client_e271a43965fdaa1c95ad9468ba87716d secret d1c0f2dfc1fdaba2a2c7985ae8d2ef5d5ae896d607aaa12c848cdb604baf7f28
 
 # Save client_id and client_secret from response!
 
 # 2. Visit authorization URL in browser
-# http://localhost:9000/oauth/authorize?client_id=XXX&redirect_uri=http://localhost:3000/callback&response_type=code&state=random123
+# http://localhost:9000/oauth/authorize?client_id=client_e271a43965fdaa1c95ad9468ba87716d&redirect_uri=http://localhost:3000/callback&response_type=code&state=random123
 
 # 3. After login, you'll be redirected to:
 # http://localhost:3000/callback?code=YYY&state=random123
@@ -469,9 +471,9 @@ curl -X POST http://localhost:9000/oauth/token \
   -H "Content-Type: application/json" \
   -d '{
     "grant_type": "authorization_code",
-    "code": "YYY",
-    "client_id": "XXX",
-    "client_secret": "ZZZ",
+    "code": "9adbd3e0be32d9c2a2f9ed7955689b8a898b174bda996397c39f1d9c03d7bdf1",
+    "client_id": "client_778dfa0ff6135e966eb092b99d68d425",
+    "client_secret": "b61325d94cf13c41378a4c454ff2beb03668a93797ba6e6f33baa558454295a6",
     "redirect_uri": "http://localhost:3000/callback"
   }'
 

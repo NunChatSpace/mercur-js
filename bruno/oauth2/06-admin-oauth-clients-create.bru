@@ -12,12 +12,12 @@ post {
 
 headers {
   Content-Type: application/json
-  Authorization: Bearer {{adminToken}}
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3Rvcl9pZCI6InVzZXJfMDFLR1lXUE1IOEdONFpTVkFQQTBRSjJDOTkiLCJhY3Rvcl90eXBlIjoidXNlciIsImF1dGhfaWRlbnRpdHlfaWQiOiJhdXRoaWRfMDFLR1lXUE1HVDlRWEdIQlA5MkdWMDk2NjYiLCJhcHBfbWV0YWRhdGEiOnsidXNlcl9pZCI6InVzZXJfMDFLR1lXUE1IOEdONFpTVkFQQTBRSjJDOTkifSwidXNlcl9tZXRhZGF0YSI6e30sImlhdCI6MTc3MDU2MzI4MSwiZXhwIjoxNzcwNjQ5NjgxfQ.hlnA8537bESqT4UunBnSNIFxEv9Xz0Lb1M3xT7n_Vrs
 }
 
 body:json {
   {
-    "name": "Test App",
+    "name": "Shoppee",
     "redirect_uris": [
       "{{redirectUri}}"
     ],
@@ -27,8 +27,7 @@ body:json {
     ],
     "scopes": [
       "{{scope}}"
-    ],
-    "is_confidential": true
+    ]
   }
 }
 

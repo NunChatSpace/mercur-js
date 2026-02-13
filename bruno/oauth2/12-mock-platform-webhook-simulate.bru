@@ -1,0 +1,37 @@
+meta {
+  name: Mock Platform - Webhook Simulate
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/platform/admin/simulate
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "webhook_event",
+    "platform": "{{platform}}",
+    "shop_id": "{{webhookShopId}}",
+    "event_type": "order.created",
+    "data": {
+      "platform": "oms",
+      "shop_id": "client_e271a43965fdaa1c95ad9468ba87716d",
+      "order_id": "ord_test_1",
+      "total": 1000,
+      "currency": "THB"
+    }
+  }
+}
+
+tests {
+  test("should trigger webhook event", function () {
+    expect(res.status).to.equal(200);
+  });
+}

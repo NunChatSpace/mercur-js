@@ -1,6 +1,6 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import type { AuthenticationInput } from "@medusajs/framework/types"
-import { Modules } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { generateLoginPage } from "../../../shared/oauth/login-template"
 import OAuthModuleService from "../../../modules/oauth/service"
 import { OAUTH_MODULE } from "../../../modules/oauth"
@@ -166,15 +166,41 @@ export async function POST(
       return renderLoginWithError(res, req.body, "Authentication failed")
     }
 
-    // The actor_id is the actual user ID (customer_id, user_id, etc.)
-    // Find the provider identity to get entity_id
-    const providerIdentity = authIdentity.provider_identities?.find(
-      (p: any) => p.provider === "emailpass"
-    )
-    const userId =
-      (authIdentity.app_metadata as any)?.user_id ||
-      providerIdentity?.entity_id ||
-      authIdentity.id
+    // For sellers, look up the actual seller ID from the member
+    let userId: string
+    if (user_type === "seller") {
+      // app_metadata.seller_id is actually the member ID (mem_xxx)
+      const memberId = (authIdentity.app_metadata as any)?.seller_id
+      if (!memberId) {
+        return renderLoginWithError(res, req.body, "No seller member found for this account")
+      }
+
+      const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+
+      // Query the member to get the actual seller_id
+      const { data: members } = await query.graph({
+        entity: "member",
+        fields: ["seller_id"],
+        filters: {
+          id: memberId
+        }
+      })
+
+      if (!members || members.length === 0) {
+        return renderLoginWithError(res, req.body, "No seller found for this account")
+      }
+
+      userId = members[0].seller_id
+    } else {
+      // For other user types, use the auth identity or entity ID
+      const providerIdentity = authIdentity.provider_identities?.find(
+        (p: any) => p.provider === "emailpass"
+      )
+      userId =
+        (authIdentity.app_metadata as any)?.user_id ||
+        providerIdentity?.entity_id ||
+        authIdentity.id
+    }
 
     // Generate authorization code
     const code = await oauthService.createAuthorizationCode({

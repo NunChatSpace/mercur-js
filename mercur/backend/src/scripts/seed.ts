@@ -16,7 +16,8 @@ import {
   createSellerShippingOption,
   createSellerStockLocation,
   createServiceZoneForFulfillmentSet,
-  createStore
+  createStore,
+  createWebhookSubscription
 } from './seed/seed-functions'
 
 export default async function seedMarketplaceData({ container }: ExecArgs) {
@@ -50,10 +51,14 @@ export default async function seedMarketplaceData({ container }: ExecArgs) {
     salesChannel.id
   )
   logger.info('Creating service zone...')
+  const fulfillmentSetId = stockLocation.fulfillment_sets?.[0]?.id
+  if (!fulfillmentSetId) {
+    throw new Error('No fulfillment set found for stock location')
+  }
   const serviceZone = await createServiceZoneForFulfillmentSet(
     container,
     seller.id,
-    stockLocation.fulfillment_sets[0].id
+    fulfillmentSetId
   )
   logger.info('Creating seller shipping option...')
   await createSellerShippingOption(
@@ -69,6 +74,8 @@ export default async function seedMarketplaceData({ container }: ExecArgs) {
   await createInventoryItemStockLevels(container, stockLocation.id)
   logger.info('Creating default commission...')
   await createDefaultCommissionLevel(container)
+  logger.info('Creating webhook subscription for adapter...')
+  await createWebhookSubscription(container, seller.id)
 
   logger.info('=== Finished ===')
   logger.info(`Publishable api key: ${apiKey.token}`)
