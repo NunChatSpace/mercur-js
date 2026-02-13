@@ -1,0 +1,13 @@
+meta {
+  name: "Get Regions"
+  type: "http"
+  seq: 1
+}
+
+get {
+  url: "{{base_url}}/store/regions"
+}
+
+headers {
+  x-publishable-api-key: "{{publishable_key}}"
+}

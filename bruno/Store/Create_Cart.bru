@@ -1,0 +1,18 @@
+meta {
+  name: "Create Cart"
+  type: "http"
+  seq: 2
+}
+
+post {
+  url: "{{base_url}}/store/carts"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+}
+
+body:json {
+  "region_id": "{{region_id}}"
+}

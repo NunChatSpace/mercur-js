@@ -1,0 +1,18 @@
+meta {
+  name: "Create Payment Session"
+  type: "http"
+  seq: 7
+}
+
+post {
+  url: "{{base_url}}/store/payment-collections/{{payment_collection_id}}/payment-sessions"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+}
+
+body:json {
+  "provider_id": "pp_system_default"
+}

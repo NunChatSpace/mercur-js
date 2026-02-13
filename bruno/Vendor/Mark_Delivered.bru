@@ -1,0 +1,15 @@
+meta {
+  name: "Mark As Delivered"
+  type: "http"
+  seq: 15
+}
+
+post {
+  url: "{{base_url}}/vendor/orders/{{order_id}}/fulfillments/{{fulfillment_id}}/mark-as-delivered"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+  authorization: "Bearer {{vendor_token}}"
+}

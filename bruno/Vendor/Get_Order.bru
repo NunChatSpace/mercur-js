@@ -1,0 +1,14 @@
+meta {
+  name: "Get Order"
+  type: "http"
+  seq: 11
+}
+
+get {
+  url: "{{base_url}}/vendor/orders/{{order_id}}"
+}
+
+headers {
+  x-publishable-api-key: "{{publishable_key}}"
+  authorization: "Bearer {{vendor_token}}"
+}

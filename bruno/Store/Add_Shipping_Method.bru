@@ -1,0 +1,18 @@
+meta {
+  name: "Add Shipping Method"
+  type: "http"
+  seq: 5
+}
+
+post {
+  url: "{{base_url}}/store/carts/{{cart_id}}/shipping-methods"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+}
+
+body:json {
+  "option_id": "{{shipping_option_id}}"
+}

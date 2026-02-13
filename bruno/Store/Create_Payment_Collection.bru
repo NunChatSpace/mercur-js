@@ -1,0 +1,18 @@
+meta {
+  name: "Create Payment Collection"
+  type: "http"
+  seq: 6
+}
+
+post {
+  url: "{{base_url}}/store/payment-collections"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+}
+
+body:json {
+  "cart_id": "{{cart_id}}"
+}

@@ -1,0 +1,19 @@
+meta {
+  name: "Add Line Item"
+  type: "http"
+  seq: 3
+}
+
+post {
+  url: "{{base_url}}/store/carts/{{cart_id}}/line-items"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+}
+
+body:json {
+  "variant_id": "{{variant_id}}",
+  "quantity": 1
+}

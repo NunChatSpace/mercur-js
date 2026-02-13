@@ -1,0 +1,26 @@
+meta {
+  name: "Create Fulfillment"
+  type: "http"
+  seq: 13
+}
+
+post {
+  url: "{{base_url}}/vendor/orders/{{order_id}}/fulfillments"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+  authorization: "Bearer {{vendor_token}}"
+}
+
+body:json {
+  "location_id": "{{location_id}}",
+  "requires_shipping": true,
+  "items": [
+    {
+      "id": "{{line_item_id}}",
+      "quantity": 1
+    }
+  ]
+}

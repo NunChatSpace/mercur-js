@@ -1,0 +1,14 @@
+meta {
+  name: "Complete Cart"
+  type: "http"
+  seq: 8
+}
+
+post {
+  url: "{{base_url}}/store/carts/{{cart_id}}/complete"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+}

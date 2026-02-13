@@ -519,3 +519,91 @@ docker compose exec mercurjs yarn medusa db:migrate
 # Stop all
 docker compose down
 ```
+
+## OMS Testing Workflow (MQTT + HTTP)
+
+Use this workflow to test the same steps as the webui.
+
+**Environment**
+```bash
+BASE_URL=http://localhost:9000
+PUBLISHABLE_KEY=pk_fcf988d4ff36ddf1076d348a647682c3b01cff5a82b7603fa19daca23f958515
+SHOP_ID=sel_01KGYWPMS6GXR9310KWWZFF7J8
+LOCATION_ID=sloc_01KGYWPMTEQFAGHPA81PG13EYY
+ORDER_ID=order_...
+LINE_ITEM_ID=ordli_...
+FULFILLMENT_ID=ful_...
+```
+
+### 1) Create Product (MQTT)
+```bash
+mosquitto_pub -h localhost -p 1883 -t "requests/create_product" -m '{
+  "request_id": "req-001",
+  "api_key": "test-key-789",
+  "shop_id": "'"$SHOP_ID"'",
+  "action": "create_product",
+  "params": {
+    "product": {
+      "title": "Green high-tops",
+      "status": "published",
+      "options": [{ "title": "Default", "values": ["Default"] }],
+      "variants": [{
+        "title": "Default Variant",
+        "options": { "Default": "Default" },
+        "prices": [{ "amount": 99, "currency_code": "eur" }]
+      }]
+    }
+  }
+}'
+```
+
+**Subscribe to webhook events (orders/#)**  
+Run in another terminal to watch order updates:
+```bash
+mosquitto_sub -h localhost -p 1883 -t "orders/#" -v
+```
+
+### 2) Fulfill Product (Vendor)
+Get seller token:
+```bash
+curl -X POST "$BASE_URL/auth/seller/emailpass" \
+  -H "Content-Type: application/json" \
+  -H "x-publishable-api-key: $PUBLISHABLE_KEY" \
+  -d '{"email":"<seller_email>","password":"<seller_password>"}'
+```
+Set token:
+```bash
+VENDOR_TOKEN=<token_from_login>
+```
+Create fulfillment:
+```bash
+curl -X POST "$BASE_URL/vendor/orders/$ORDER_ID/fulfillments" \
+  -H "Content-Type: application/json" \
+  -H "x-publishable-api-key: $PUBLISHABLE_KEY" \
+  -H "Authorization: Bearer $VENDOR_TOKEN" \
+  -d '{
+    "location_id":"'"$LOCATION_ID"'",
+    "requires_shipping":true,
+    "items":[{"id":"'"$LINE_ITEM_ID"'","quantity":1}]
+  }'
+```
+
+### 3) Shipping (Vendor)
+```bash
+curl -X POST "$BASE_URL/vendor/orders/$ORDER_ID/fulfillments/$FULFILLMENT_ID/shipments" \
+  -H "Content-Type: application/json" \
+  -H "x-publishable-api-key: $PUBLISHABLE_KEY" \
+  -H "Authorization: Bearer $VENDOR_TOKEN" \
+  -d '{
+    "items":[{"id":"'"$LINE_ITEM_ID"'","quantity":1}],
+    "labels":[]
+  }'
+```
+
+### 4) Delivered (Vendor)
+```bash
+curl -X POST "$BASE_URL/vendor/orders/$ORDER_ID/fulfillments/$FULFILLMENT_ID/mark-as-delivered" \
+  -H "Content-Type: application/json" \
+  -H "x-publishable-api-key: $PUBLISHABLE_KEY" \
+  -H "Authorization: Bearer $VENDOR_TOKEN"
+```

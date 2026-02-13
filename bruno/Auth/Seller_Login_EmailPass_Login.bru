@@ -1,0 +1,19 @@
+meta {
+  name: "Seller Login (emailpass/login)"
+  type: "http"
+  seq: 10
+}
+
+post {
+  url: "{{base_url}}/auth/seller/emailpass/login"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+}
+
+body:json {
+  "email": "{{vendor_email}}",
+  "password": "{{vendor_password}}"
+}

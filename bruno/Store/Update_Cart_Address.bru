@@ -1,0 +1,34 @@
+meta {
+  name: "Update Cart (Address + Email)"
+  type: "http"
+  seq: 4
+}
+
+post {
+  url: "{{base_url}}/store/carts/{{cart_id}}"
+}
+
+headers {
+  Content-Type: "application/json"
+  x-publishable-api-key: "{{publishable_key}}"
+}
+
+body:json {
+  "email": "test@example.com",
+  "shipping_address": {
+    "first_name": "Test",
+    "last_name": "User",
+    "address_1": "Test Address",
+    "city": "Test City",
+    "country_code": "pl",
+    "postal_code": "00000"
+  },
+  "billing_address": {
+    "first_name": "Test",
+    "last_name": "User",
+    "address_1": "Test Address",
+    "city": "Test City",
+    "country_code": "pl",
+    "postal_code": "00000"
+  }
+}
