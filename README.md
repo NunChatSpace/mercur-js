@@ -73,7 +73,7 @@ This creates:
 | MercurJS API | http://localhost:9000 | Backend API |
 | Admin Panel | http://localhost:5173 | Platform admin |
 | Vendor Panel | http://localhost:7000 | Seller dashboard |
-| WebUI | http://localhost:3100 | OAuth flow helper |
+| WebUI | http://localhost:3100 | OAuth flow helper, Debugging tool |
 | Adapter | http://localhost:3001 | External platform integration |
 | pgAdmin | http://localhost:5050 | Database management |
 
