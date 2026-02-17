@@ -197,8 +197,8 @@
         <div class="form-group">
           <label>Status</label>
           <select id="productStatus">
+            <option value="published" selected>Published</option>
             <option value="draft">Draft</option>
-            <option value="published">Published</option>
           </select>
         </div>
         <div class="form-actions">
@@ -345,6 +345,7 @@
     const shippingOptionId = 'so_01KGYWPMY081TDPZRVJ09PHKMT';
 
     let mqttClient = null;
+    let cachedSellerProducts = [];
 
     const existingVendorToken = localStorage.getItem('vendorAuthToken');
     if (existingVendorToken) {
@@ -439,6 +440,25 @@
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
       });
+    }
+
+    function findVariantInCachedProducts(variantId) {
+      for (const product of cachedSellerProducts) {
+        const variants = Array.isArray(product?.variants) ? product.variants : [];
+        const matchedVariant = variants.find((variant) => variant?.id === variantId);
+        if (matchedVariant) {
+          return {
+            found: true,
+            productStatus: String(product?.status || '').toLowerCase(),
+            productTitle: product?.title || '-',
+            variantTitle: matchedVariant?.title || '-',
+          };
+        }
+      }
+
+      return {
+        found: false,
+      };
     }
 
     function requestProducts() {
@@ -542,6 +562,8 @@
               {
                 title: 'Default Variant',
                 options: { 'Default': 'Default' },
+                manage_inventory: false,
+                allow_backorder: true,
                 prices: [
                   { amount: price, currency_code: currency }
                 ]
@@ -690,6 +712,28 @@
       if (!variantId) {
         addApiResponse('local/order/error', { error: 'Variant ID is required. Use "Get Products" to find one.' });
         return;
+      }
+
+      if (cachedSellerProducts.length > 0) {
+        const cachedVariant = findVariantInCachedProducts(variantId);
+
+        if (!cachedVariant.found) {
+          addApiResponse('local/order/error', {
+            error: 'Variant not found in cached seller products. Click "Get Products" and retry with a listed variant ID.',
+            variant_id: variantId,
+          });
+          return;
+        }
+
+        if (cachedVariant.productStatus !== 'published') {
+          addApiResponse('local/order/error', {
+            error: 'Variant belongs to a non-published product. Publish the product first, then place the order.',
+            variant_id: variantId,
+            product_title: cachedVariant.productTitle,
+            product_status: cachedVariant.productStatus || 'unknown',
+          });
+          return;
+        }
       }
 
       const btn = document.getElementById('placeOrderBtn');
@@ -1033,6 +1077,11 @@
     function addApiResponse(topic, data) {
       const listEl = document.getElementById('responseList');
       const emptyEl = document.getElementById('responseEmpty');
+
+      const responseProducts = data?.data?.products;
+      if (Array.isArray(responseProducts)) {
+        cachedSellerProducts = responseProducts;
+      }
 
       emptyEl.style.display = 'none';
 

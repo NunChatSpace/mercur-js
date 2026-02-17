@@ -3,6 +3,20 @@ import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { SELLER_PRODUCT_LINK } from "@mercurjs/framework"
 import { createProductsWorkflow } from "@medusajs/medusa/core-flows"
 
+function slugifyHandle(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+function buildUniqueHandle(base: string): string {
+  const normalized = slugifyHandle(base) || "product"
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+  return `${normalized}-${suffix}`
+}
+
 /**
  * GET /sellers/:id/products
  * Get products for a specific seller with pagination
@@ -119,7 +133,13 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }
 
     // Build product input from request body
-    const productData = req.body as Record<string, any>
+    const productData = { ...(req.body as Record<string, any>) }
+
+    // Avoid duplicate auto-generated handles when the same title is reused.
+    // If caller provides handle explicitly, we keep it and return a conflict if duplicated.
+    if (!productData.handle) {
+      productData.handle = buildUniqueHandle(productData.title || "product")
+    }
 
     const { result } = await createProductsWorkflow.run({
       container: req.scope,
@@ -136,9 +156,18 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     })
   } catch (error: any) {
     console.error("Error creating seller product:", error)
+    const message = error?.message || "Failed to create seller product"
+
+    if (typeof message === "string" && message.includes("Product with handle:") && message.includes("already exists")) {
+      return res.status(409).json({
+        error: "conflict",
+        error_description: message,
+      })
+    }
+
     return res.status(500).json({
       error: "server_error",
-      error_description: error.message || "Failed to create seller product",
+      error_description: message,
     })
   }
 }
