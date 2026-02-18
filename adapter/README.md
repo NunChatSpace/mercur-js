@@ -2,8 +2,8 @@
 
 Message broker adapter for MercurJS with two main flows:
 
-1. **Publisher (AC6)**: MercurJS webhooks → Adapter → Message Broker
-2. **Consumer**: Message Broker → Adapter → MercurJS API → Message Broker
+1. **Publisher (AC6)**: MercurJS webhooks -> Adapter -> Message Broker
+2. **Consumer**: Message Broker -> Adapter -> MercurJS API -> Message Broker
 
 ## Architecture
 
@@ -14,7 +14,7 @@ Message broker adapter for MercurJS with two main flows:
 │  ┌─────────────┐     ┌─────────────────────────────────────────────────┐    │
 │  │  Publisher  │     │                   Consumer                       │    │
 │  │             │     │                                                  │    │
-│  │  /hook ────>│────>│ requests/+/+ ──> validate ──> MercurJS API ────>│    │
+│  │  /hook ────>│────>│ requests/# ───> validate ──> MercurJS API ────>│    │
 │  │  (webhook)  │     │                     │              │             │    │
 │  └──────┬──────┘     │                     │              │             │    │
 │         │            │                     ▼              ▼             │    │
@@ -23,9 +23,9 @@ Message broker adapter for MercurJS with two main flows:
 │         │            │               │  Store   │   │  Mapper  │        │    │
 │         │            │               └──────────┘   └──────────┘        │    │
 │         │            │                                    │             │    │
-│         │            │                    responses/{platform}/{req_id} │    │
+│         │            │                    responses/{req_id}           │    │
 │         ▼            └────────────────────────────────────┼─────────────┘    │
-│    orders/{platform}/{shop_id}/{event}                    │                  │
+│    orders/{event_type}                                    │                  │
 │         │                                                 │                  │
 └─────────┼─────────────────────────────────────────────────┼──────────────────┘
           │                                                 │
@@ -61,25 +61,32 @@ make docker-down
 | `/health` | GET | Health check |
 | `/hook` | POST | Webhook receiver (Publisher) |
 | `/oauth/callback` | GET | OAuth token exchange |
+| `/api/mappings` | GET | List mappings (optional filters: `platform_id`, `entity_type`) |
+| `/api/mappings` | POST | Create/Upsert mapping |
+| `/api/mappings/{id}` | DELETE | Delete mapping |
 
 ## Message Topics
 
 **Requests (External → Adapter):**
 ```
+requests/{action}
+Example: requests/api_request
+
+Also supported:
 requests/{platform}/{action}
-Example: requests/shopee/get_stores
+Example: requests/shopee/api_request
 ```
 
 **Responses (Adapter → External):**
 ```
-responses/{platform}/{request_id}
-Example: responses/shopee/req_001
+responses/{request_id}
+Example: responses/req_001
 ```
 
 **Orders (Adapter → External):**
 ```
-orders/{platform}/{shop_id}/{event_type}
-Example: orders/shopee/shop_001/order.created
+orders/{event_type}
+Example: orders/order.created
 ```
 
 ## Request Message Format
@@ -88,12 +95,51 @@ Example: orders/shopee/shop_001/order.created
 {
   "request_id": "req_001",
   "api_key": "shopee-key-123",
-  "platform": "shopee",
+  "platform": "default",
   "shop_id": "shop_001",
-  "action": "get_stores",
-  "params": {}
+  "action": "api_request",
+  "params": {
+    "path": "/sellers",
+    "method": "GET",
+    "entity_type": "seller",
+    "entity_key": "sellers"
+  }
 }
 ```
+
+## Field Mapping Configuration
+
+You can configure mappings in two ways:
+
+1. Web UI: `http://localhost:3100/mappings.html`
+2. Adapter API:
+
+```bash
+# List mappings
+curl "http://localhost:3001/api/mappings?platform_id=default&entity_type=product"
+
+# Upsert mapping
+curl -X POST "http://localhost:3001/api/mappings" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform_id": "default",
+    "entity_type": "product",
+    "source_field": "variants.0.prices.0.amount",
+    "target_field": "price",
+    "transform": "cents_to_dollars",
+    "is_active": true
+  }'
+
+# Delete mapping
+curl -X DELETE "http://localhost:3001/api/mappings/<mapping_id>"
+```
+
+Notes:
+- One mapping row is used for both directions:
+  - `Transform`: `source_field -> target_field`
+  - `ReverseTransform`: `target_field -> source_field`
+- Mapper selection is platform-aware:
+  - Uses request `platform` (or topic `requests/{platform}/{action}`), otherwise falls back to `default`.
 
 ## Response Message Format
 
