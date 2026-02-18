@@ -13,6 +13,7 @@ import (
 type RequestMessage struct {
 	RequestID string                 `json:"request_id"`
 	APIKey    string                 `json:"api_key"`
+	Platform  string                 `json:"platform"`
 	ShopID    string                 `json:"shop_id"`
 	Action    string                 `json:"action"`
 	Params    map[string]interface{} `json:"params"`
@@ -88,7 +89,9 @@ func (c *Consumer) Start() error {
 func (c *Consumer) handleMessage(client mqtt.Client, msg mqtt.Message) {
 	log.Printf("[consumer] Received message on topic: %s", msg.Topic())
 
-	// Parse topic: requests/{action}
+	// Parse topic:
+	// - requests/{action}
+	// - requests/{platform}/{action}
 	parts := strings.Split(msg.Topic(), "/")
 	if len(parts) < 2 {
 		log.Printf("[consumer] Invalid topic format: %s", msg.Topic())
@@ -96,6 +99,10 @@ func (c *Consumer) handleMessage(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	topicAction := parts[len(parts)-1]
+	topicPlatform := ""
+	if len(parts) >= 3 && parts[0] == "requests" {
+		topicPlatform = parts[1]
+	}
 
 	// Parse message
 	var req RequestMessage
@@ -103,6 +110,10 @@ func (c *Consumer) handleMessage(client mqtt.Client, msg mqtt.Message) {
 		log.Printf("[consumer] Failed to parse message: %v", err)
 		c.publishError("", "parse_error", "Failed to parse request message")
 		return
+	}
+
+	if req.Platform == "" && topicPlatform != "" {
+		req.Platform = topicPlatform
 	}
 
 	// Use action from message (or fallback to topic)

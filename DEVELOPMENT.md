@@ -10,7 +10,7 @@ MurcurJS is an e-commerce marketplace built on Medusa.js with:
 - Async MQTT messaging pattern for API requests
 - Go adapter service for field transformations
 
-**Note:** The "platform" concept has been removed for simplicity. MercurJS (Medusa) represents the marketplace platforms (Shopee, Lazada, TikTok). External services integrate directly without needing to specify a platform.
+**Note:** `default` platform is the baseline for simplicity. MercurJS (Medusa) represents the marketplace platforms (Shopee, Lazada, TikTok). External services can still provide `platform` to use platform-specific field mappings when needed.
 
 ## Architecture
 
@@ -144,6 +144,8 @@ Field transformations for external services:
 **Key files:**
 - `adapter/internal/mapper/mapper.go` - Field mapping logic
 - `adapter/internal/repository/field_mapping.go` - Database queries
+- `adapter/internal/controllers/mappings.go` - Mapping CRUD API
+- `webui/mappings.html` - Key mapping configuration page
 - `scripts/init-db.sql` - Seed data with default mappings
 
 Example mappings (external → MercurJS format):
@@ -152,7 +154,7 @@ Example mappings (external → MercurJS format):
 - `id` → `item_id` (product)
 - `title` → `item_name` (product)
 
-All mappings now use `platform_id = 'default'` since platform concept was removed.
+Default mapping uses `platform_id = 'default'`. You can also configure additional platform-specific mappings (`shopee`, `lazada`, etc.) and send `platform` in request payload/topic.
 
 ### 6. Webhook Support
 
@@ -255,13 +257,15 @@ id | shop_id | url                          | secret          | event_types
 
 External services send requests via MQTT and receive responses asynchronously.
 
-**Request Topic:** `requests/api_request`
+**Request Topic:** `requests/api_request` (supported)
+Alternative supported topic format: `requests/{platform}/{action}`
 
 **Request Message Format:**
 ```json
 {
   "request_id": "uuid-v4",
   "api_key": "trusted-service-api-key",
+  "platform": "default",
   "shop_id": "sel_01ABC123",
   "action": "api_request",
   "params": {
@@ -339,6 +343,34 @@ VALUES
 {
   "item_id": "prod_123",
   "item_name": "My Product"
+}
+```
+
+### 5. Mapping Configuration UI
+
+You can manage mappings from Web UI:
+
+1. Open `http://localhost:3100/mappings.html`
+2. Set Adapter URL (default `http://localhost:3001`)
+3. Filter by `platform_id` and `entity_type`
+4. Add/Upsert mapping rows
+5. Delete mapping rows
+
+Adapter mapping APIs used by this page:
+
+- `GET /api/mappings?platform_id=...&entity_type=...`
+- `POST /api/mappings`
+- `DELETE /api/mappings/{id}`
+
+`POST /api/mappings` body:
+```json
+{
+  "platform_id": "default",
+  "entity_type": "product",
+  "source_field": "variants.0.prices.0.amount",
+  "target_field": "price",
+  "transform": "cents_to_dollars",
+  "is_active": true
 }
 ```
 
@@ -429,7 +461,7 @@ This creates:
 - **Token Refresh**: Automatic refresh with client credentials
 - **Async Products API via MQTT**: WebUI publishes directly to MQTT → Consumer → MercurJS → MQTT → WebUI
 - **Topic Lifecycle**: Clean subscribe/unsubscribe per request
-- **Field Mapping**: Default field transformations
+- **Field Mapping**: Configurable from WebUI (`/mappings.html`) + adapter CRUD APIs
 - **Debug WebUI**: Two-panel layout with API responses (left) and webhook events (right)
 - **Order Webhooks**: Real order.created events trigger webhooks to adapter → MQTT → WebUI
 
@@ -456,7 +488,7 @@ This creates:
 5. **CORS errors**: Added all service origins to CORS config
 6. **Products endpoint pricing error**: Removed `variants.calculated_price.calculated_amount` field that required currency_code context
 7. **MQTT topic cleanup**: Changed from wildcard subscription to per-request subscribe/unsubscribe pattern
-8. **Platform concept removed**: Simplified architecture by removing platform_id from tokens, MQTT topics, and field mappings - now uses 'default' platform_id and gets shop_id from OAuth token response
+8. **Default platform baseline + optional platform-aware mapping**: Uses `default` mapping by default, while also supporting `platform` in MQTT payload/topic (`requests/{platform}/{action}`) for platform-specific field mappings
 
 ## File Structure
 
@@ -483,7 +515,8 @@ murcurjs/
 │           └── subscribers/   # Event subscribers
 ├── webui/                     # Debug/POC HTML/JS frontend
 │   ├── index.html            # OAuth connect form (simple "Connect Shop" button)
-│   └── seller.html           # Two-panel debug view (API responses + webhook events)
+│   ├── seller.html           # Two-panel debug view (API responses + webhook events)
+│   └── mappings.html         # Platform key mapping configuration UI
 ├── scripts/
 │   └── init-db.sql           # Adapter database seed
 ├── docker-compose.yml        # All services
@@ -492,12 +525,11 @@ murcurjs/
 
 ## Next Steps / TODO
 
-1. **Create Product from OMS**: Add `handleCreateProduct` handler in adapter to create products via MQTT
-2. **Admin OAuth UI**: Manage OAuth clients in admin panel
-3. **Webhook Retry**: Implement retry logic for failed webhooks
-4. **Product Pricing**: Add currency_code support to products endpoint for price display
-5. **Tests**: Add unit and integration tests
-6. **Order Status Webhooks**: Add order.updated subscriber for status changes
+1. **Admin OAuth UI**: Manage OAuth clients in admin panel
+2. **Webhook Retry**: Implement retry logic for failed webhooks
+3. **Product Pricing**: Add currency_code support to products endpoint for price display
+4. **Tests**: Add unit and integration tests
+5. **Order Status Webhooks**: Add order.updated subscriber for status changes
 
 ## Useful Commands
 

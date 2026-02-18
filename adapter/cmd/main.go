@@ -51,7 +51,7 @@ func main() {
 	fieldMapper := mapper.New(fieldMappingRepo)
 
 	// Create services
-	webhookService := services.NewWebhookService(cfg.WebhookSecret, publisher)
+	webhookService := services.NewWebhookService(cfg.WebhookSecret, publisher, fieldMapper)
 	authService := services.NewAuthService(trustedServiceRepo)
 	consumerService := services.NewConsumerService(authService, apiClient, fieldMapper)
 	oauthService := services.NewOAuthService(cfg.MercurJS.BaseURL, cfg.MercurJS.ClientID, cfg.MercurJS.ClientSecret, cfg.MercurJS.RedirectURI, tokenRepo)
@@ -72,6 +72,7 @@ func main() {
 	// Create handlers
 	webhookHandler := controllers.NewWebhookHandler(webhookService)
 	oauthHandler := controllers.NewOAuthHandler(oauthService, cfg.WebUIURL)
+	mappingsHandler := controllers.NewMappingsHandler(fieldMappingRepo, fieldMapper)
 
 	// Create API handler for async MQTT requests
 	apiHandler := controllers.NewAPIHandler(publisher, "test-key-789")
@@ -86,6 +87,9 @@ func main() {
 	router.HandleFunc("/hook", webhookHandler.HandleWebhook).Methods("POST")
 	router.HandleFunc("/health", webhookHandler.HandleHealth).Methods("GET")
 	router.HandleFunc("/oauth/callback", oauthHandler.HandleCallback).Methods("GET")
+	router.HandleFunc("/api/mappings", mappingsHandler.HandleListMappings).Methods("GET")
+	router.HandleFunc("/api/mappings", mappingsHandler.HandleUpsertMapping).Methods("POST")
+	router.HandleFunc("/api/mappings/{id}", mappingsHandler.HandleDeleteMapping).Methods("DELETE")
 
 	// API routes (proxied through MQTT)
 	router.HandleFunc("/api/sellers", apiHandler.HandleGetSellers).Methods("GET")

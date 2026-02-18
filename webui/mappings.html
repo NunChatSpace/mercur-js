@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Key Mappings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+    .header {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .header h1 { font-size: 1.1rem; }
+    .links a { color: #007bff; text-decoration: none; margin-left: 0.75rem; font-size: 0.9rem; }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 { font-size: 1rem; margin-bottom: 0.75rem; }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+    .row-compact {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    label { font-size: 0.75rem; color: #666; display: block; margin-bottom: 0.2rem; }
+    input, select {
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 0.45rem 0.55rem;
+      font-size: 0.85rem;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { border: 1px solid #eee; padding: 0.45rem 0.5rem; text-align: left; }
+    th { background: #fafafa; }
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 0.7rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .btn-primary { background: #007bff; color: #fff; }
+    .btn-danger { background: #dc3545; color: #fff; }
+    .btn-muted { background: #6c757d; color: #fff; }
+    .status { font-size: 0.82rem; margin-top: 0.5rem; color: #555; }
+    .empty { color: #777; font-size: 0.9rem; padding: 1rem 0; }
+    @media (max-width: 900px) {
+      .row { grid-template-columns: 1fr 1fr; }
+      .row-compact { grid-template-columns: 1fr; }
+      .header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Platform Key Mapping Configuration</h1>
+      <div class="links">
+        <a href="/index.html">Home</a>
+        <a href="#" id="sellerLink">Seller Page</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Adapter</h2>
+      <div class="row-compact">
+        <div>
+          <label>Adapter URL</label>
+          <input id="adapterUrl" type="text" value="http://localhost:3001">
+        </div>
+        <div>
+          <label>Shop ID (for Seller link)</label>
+          <input id="shopId" type="text" placeholder="sel_...">
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn btn-muted" onclick="saveConfig()">Save</button>
+        </div>
+      </div>
+      <div class="status" id="configStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Filters</h2>
+      <div class="row-compact">
+        <div>
+          <label>Platform ID</label>
+          <input id="filterPlatform" type="text" placeholder="default / shopee / lazada">
+        </div>
+        <div>
+          <label>Entity Type</label>
+          <input id="filterEntity" type="text" placeholder="product / seller / order">
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:0.5rem;">
+          <button class="btn btn-primary" onclick="loadMappings()">Load</button>
+          <button class="btn btn-muted" onclick="clearFilters()">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Add / Upsert Mapping</h2>
+      <div class="row">
+        <div>
+          <label>Platform ID</label>
+          <input id="platformId" type="text" value="default">
+        </div>
+        <div>
+          <label>Entity Type</label>
+          <input id="entityType" type="text" placeholder="product">
+        </div>
+        <div>
+          <label>Medusa Field (source_field)</label>
+          <input id="sourceField" type="text" placeholder="variants.0.price">
+        </div>
+        <div>
+          <label>Platform Field (target_field)</label>
+          <input id="targetField" type="text" placeholder="price">
+        </div>
+        <div>
+          <label>Transform</label>
+          <select id="transform">
+            <option value="">(none)</option>
+            <option value="uppercase">uppercase</option>
+            <option value="lowercase">lowercase</option>
+            <option value="cents_to_dollars">cents_to_dollars</option>
+            <option value="dollars_to_cents">dollars_to_cents</option>
+            <option value="string">string</option>
+            <option value="int">int</option>
+            <option value="bool">bool</option>
+            <option value="date_iso">date_iso</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-primary" onclick="upsertMapping()">Save Mapping</button>
+      </div>
+      <div class="status" id="saveStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Mappings</h2>
+      <div id="empty" class="empty">No mappings loaded.</div>
+      <table id="table" style="display:none;">
+        <thead>
+          <tr>
+            <th>Platform</th>
+            <th>Entity</th>
+            <th>Source Field</th>
+            <th>Target Field</th>
+            <th>Transform</th>
+            <th>Active</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let adapterUrl = localStorage.getItem("adapterUrl") || "http://localhost:3001";
+    let mappings = [];
+
+    function normalizeURL(url) {
+      return (url || "").trim().replace(/\/+$/, "");
+    }
+
+    function getShopId() {
+      return document.getElementById("shopId").value.trim();
+    }
+
+    function updateSellerLink() {
+      const shopId = getShopId();
+      const link = document.getElementById("sellerLink");
+      link.href = shopId ? `/seller.html?shop_id=${encodeURIComponent(shopId)}` : "/seller.html";
+    }
+
+    function saveConfig() {
+      adapterUrl = normalizeURL(document.getElementById("adapterUrl").value) || "http://localhost:3001";
+      localStorage.setItem("adapterUrl", adapterUrl);
+      localStorage.setItem("mappingShopId", getShopId());
+      updateSellerLink();
+      document.getElementById("configStatus").textContent = "Saved.";
+    }
+
+    async function apiFetch(path, options = {}) {
+      const res = await fetch(adapterUrl + path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      if (res.status === 204) return null;
+      return res.json();
+    }
+
+    function clearFilters() {
+      document.getElementById("filterPlatform").value = "";
+      document.getElementById("filterEntity").value = "";
+      loadMappings();
+    }
+
+    function renderMappings() {
+      const emptyEl = document.getElementById("empty");
+      const tableEl = document.getElementById("table");
+      const tbody = document.getElementById("tbody");
+      tbody.innerHTML = "";
+
+      if (!mappings.length) {
+        tableEl.style.display = "none";
+        emptyEl.style.display = "block";
+        return;
+      }
+
+      emptyEl.style.display = "none";
+      tableEl.style.display = "table";
+
+      for (const m of mappings) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${m.platform_id || ""}</td>
+          <td>${m.entity_type || ""}</td>
+          <td>${m.source_field || ""}</td>
+          <td>${m.target_field || ""}</td>
+          <td>${m.transform || ""}</td>
+          <td>${m.is_active ? "true" : "false"}</td>
+          <td><button class="btn btn-danger" onclick="deleteMapping('${m.id}')">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function loadMappings() {
+      try {
+        const p = document.getElementById("filterPlatform").value.trim();
+        const e = document.getElementById("filterEntity").value.trim();
+        const qs = new URLSearchParams();
+        if (p) qs.set("platform_id", p);
+        if (e) qs.set("entity_type", e);
+        const suffix = qs.toString() ? `?${qs.toString()}` : "";
+        const res = await apiFetch(`/api/mappings${suffix}`);
+        mappings = res?.mappings || [];
+        renderMappings();
+      } catch (err) {
+        document.getElementById("empty").textContent = `Failed to load mappings: ${err.message}`;
+        document.getElementById("table").style.display = "none";
+        document.getElementById("empty").style.display = "block";
+      }
+    }
+
+    async function upsertMapping() {
+      const payload = {
+        platform_id: document.getElementById("platformId").value.trim() || "default",
+        entity_type: document.getElementById("entityType").value.trim(),
+        source_field: document.getElementById("sourceField").value.trim(),
+        target_field: document.getElementById("targetField").value.trim(),
+        transform: document.getElementById("transform").value,
+        is_active: true,
+      };
+
+      const statusEl = document.getElementById("saveStatus");
+      statusEl.textContent = "";
+
+      if (!payload.entity_type || !payload.source_field || !payload.target_field) {
+        statusEl.textContent = "entity_type, source_field, target_field are required.";
+        return;
+      }
+
+      try {
+        await apiFetch("/api/mappings", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        statusEl.textContent = "Saved.";
+        await loadMappings();
+      } catch (err) {
+        statusEl.textContent = `Save failed: ${err.message}`;
+      }
+    }
+
+    async function deleteMapping(id) {
+      if (!id) return;
+      if (!confirm("Delete this mapping?")) return;
+      try {
+        await apiFetch(`/api/mappings/${encodeURIComponent(id)}`, { method: "DELETE" });
+        await loadMappings();
+      } catch (err) {
+        alert(`Delete failed: ${err.message}`);
+      }
+    }
+
+    (function init() {
+      const savedShop = localStorage.getItem("mappingShopId") || "";
+      document.getElementById("adapterUrl").value = adapterUrl;
+      document.getElementById("shopId").value = savedShop;
+      document.getElementById("filterPlatform").value = "default";
+      updateSellerLink();
+      loadMappings();
+    })();
+
+    document.getElementById("shopId").addEventListener("input", updateSellerLink);
+  </script>
+</body>
+</html>

@@ -166,24 +166,45 @@ func getNestedValue(data map[string]interface{}, path string) interface{} {
 // setNestedValue sets value in nested map using dot notation
 func setNestedValue(data map[string]interface{}, path string, value interface{}) {
 	parts := strings.Split(path, ".")
-
-	current := data
-	for i, part := range parts {
-		if i == len(parts)-1 {
-			current[part] = value
-			return
+	updated := setNestedNode(data, parts, value)
+	if obj, ok := updated.(map[string]interface{}); ok {
+		for k := range data {
+			delete(data, k)
 		}
-
-		if _, ok := current[part]; !ok {
-			current[part] = make(map[string]interface{})
-		}
-
-		if next, ok := current[part].(map[string]interface{}); ok {
-			current = next
-		} else {
-			return
+		for k, v := range obj {
+			data[k] = v
 		}
 	}
+}
+
+func setNestedNode(current interface{}, parts []string, value interface{}) interface{} {
+	if len(parts) == 0 {
+		return value
+	}
+
+	part := parts[0]
+	if idx, err := strconv.Atoi(part); err == nil {
+		var arr []interface{}
+		if existing, ok := current.([]interface{}); ok {
+			arr = existing
+		}
+
+		for len(arr) <= idx {
+			arr = append(arr, nil)
+		}
+		arr[idx] = setNestedNode(arr[idx], parts[1:], value)
+		return arr
+	}
+
+	var obj map[string]interface{}
+	if existing, ok := current.(map[string]interface{}); ok && existing != nil {
+		obj = existing
+	} else {
+		obj = make(map[string]interface{})
+	}
+
+	obj[part] = setNestedNode(obj[part], parts[1:], value)
+	return obj
 }
 
 // applyTransform applies a transform function to a value

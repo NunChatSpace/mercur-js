@@ -16,6 +16,20 @@ type ConsumerService struct {
 	mapper    *mapper.Mapper
 }
 
+func resolvePlatformID(req *broker.RequestMessage) string {
+	if req.Platform != "" {
+		return strings.ToLower(strings.TrimSpace(req.Platform))
+	}
+
+	if req.Params != nil {
+		if platform, ok := req.Params["platform"].(string); ok && strings.TrimSpace(platform) != "" {
+			return strings.ToLower(strings.TrimSpace(platform))
+		}
+	}
+
+	return "default"
+}
+
 func NewConsumerService(auth *AuthService, apiClient *api.MercurJSClient, mapper *mapper.Mapper) *ConsumerService {
 	return &ConsumerService{
 		auth:      auth,
@@ -73,13 +87,15 @@ func (s *ConsumerService) handleAPIRequest(req *broker.RequestMessage) *broker.R
 	entityType, hasEntityType := req.Params["entity_type"].(string)
 	entityKey, hasEntityKey := req.Params["entity_key"].(string)
 
+	platformID := resolvePlatformID(req)
+
 	if hasEntityType && entityType != "" && hasEntityKey && entityKey != "" {
 		// Map array of entities
 		if entities, ok := result[entityKey].([]interface{}); ok {
 			var mappedEntities []map[string]interface{}
 			for _, entity := range entities {
 				if entityMap, ok := entity.(map[string]interface{}); ok {
-					mapped, err := s.mapper.Transform("default", entityType, entityMap)
+					mapped, err := s.mapper.Transform(platformID, entityType, entityMap)
 					if err != nil {
 						mappedEntities = append(mappedEntities, entityMap)
 					} else {
@@ -91,7 +107,7 @@ func (s *ConsumerService) handleAPIRequest(req *broker.RequestMessage) *broker.R
 		}
 	} else if hasEntityType && entityType != "" {
 		// Map single entity (the result itself)
-		mapped, err := s.mapper.Transform("default", entityType, result)
+		mapped, err := s.mapper.Transform(platformID, entityType, result)
 		if err != nil {
 			log.Printf("[consumer] Mapping error: %v", err)
 		} else {
@@ -126,7 +142,7 @@ func (s *ConsumerService) handleCreateProduct(req *broker.RequestMessage) *broke
 
 	// Apply reverse field mapping if entity_type is specified
 	if entityType, ok := req.Params["entity_type"].(string); ok && entityType != "" {
-		mapped, err := s.mapper.ReverseTransform("default", entityType, productData)
+		mapped, err := s.mapper.ReverseTransform(resolvePlatformID(req), entityType, productData)
 		if err != nil {
 			log.Printf("[consumer] Reverse mapping error: %v", err)
 		} else {
